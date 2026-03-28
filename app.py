@@ -256,10 +256,11 @@ col1, col2 = st.columns([1, 1], gap="large")
 with col1:
     st.subheader("📥 Input / Intelligence Gathering")
     
-    input_mode = st.radio("Select Input Modality", ["Text / Dispatch Log", "Image / Scene Photo"], help="Choose how you want to upload intelligence.")
+    input_mode = st.radio("Select Input Modality", ["Text / Dispatch Log", "Image / Scene Photo", "🎙️ Voice / Audio Intercept"], help="Choose how you want to upload intelligence.")
     
     user_text = ""
     user_image = None
+    user_audio = None
     
     if input_mode == "Text / Dispatch Log":
         user_text = st.text_area(
@@ -267,12 +268,18 @@ with col1:
             placeholder="e.g. 'massive accident mg road flyover. 3 cars hit. people trapped. send help fast!!!'",
             height=200
         )
-    else:
+    elif input_mode == "Image / Scene Photo":
         uploaded_file = st.file_uploader("Upload scene photo or handwritten note", type=["png", "jpg", "jpeg"], help="Upload an image showing the scale of the crisis.")
         if uploaded_file is not None:
             user_image = AegisCore.optimize_image(Image.open(uploaded_file))
             st.image(user_image, caption="Uploaded Evidence - Optimized for bandwidth", use_container_width=True)
             user_text = st.text_input("Additional context (optional):", placeholder="Any other details?")
+    elif input_mode == "🎙️ Voice / Audio Intercept":
+        # Supports modern streamlit st.audio_input (mic) OR standard file upload for voice notes
+        st.write("Upload a raw 911 audio dispatch or voice note.")
+        user_audio = st.file_uploader("Upload Voice File (.mp3, .wav)", type=["mp3", "wav", "m4a"], help="Attach noisy or chaotic voice intel.")
+        if user_audio is not None:
+            st.audio(user_audio, format="audio/mp3")
 
     analyze_btn = st.button("🔥 Generate Action Plan", use_container_width=True, type="primary", help="Synthesize data into an actionable protocol.")
 
@@ -282,13 +289,13 @@ with col2:
     if analyze_btn:
         if not API_KEY:
             st.error("🚨 You need to enter your Gemini API Key in the Left Sidebar before you can generate a plan!")
-        elif not user_text and not user_image:
-            st.error("Please provide either text or an image input.")
+        elif not user_text and not user_image and not user_audio:
+            st.error("Please provide text, image, or audio input.")
         else:
             with st.spinner("Analyzing intelligence with Gemini 2.5 Flash..."):
                 try:
                     prompt = f"""
-                    You are 'Aegis', an advanced emergency response AI. Your task is to analyze the unstructured, messy intelligence and convert it into a structured, immediate action plan.
+                    You are 'Aegis', an advanced emergency response AI. Your task is to analyze the chaotic, messy intelligence (which could be an image, text, or a raw frantic audio dispatch recording) and convert it into a structured, immediate action plan.
                     
                     RESPOND EXACTLY AND ONLY WITH VALID JSON using the format below.
                     {{
@@ -303,7 +310,7 @@ with col2:
                             "Step 3: Extract victims."
                         ]
                     }}
-                    Context: {user_text}
+                    Context Text (If Any): {user_text}
                     """
                     
                     # Core Google Services Interaction (Efficient via GenAI Native Client)
@@ -311,6 +318,13 @@ with col2:
                         response = client.models.generate_content(
                             model="gemini-2.5-flash",
                             contents=[user_image, prompt]
+                        )
+                    elif user_audio:
+                        # Feed raw audio distress signals
+                        audio_data = user_audio.getvalue()
+                        response = client.models.generate_content(
+                            model="gemini-2.5-flash",
+                            contents=[{'mime_type': 'audio/mp3', 'data': audio_data}, prompt]
                         )
                     else:
                         response = client.models.generate_content(
