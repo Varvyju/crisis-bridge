@@ -185,8 +185,7 @@ with col1:
         user_text = st.text_area(
             "Enter raw, unstructured intelligence:",
             placeholder="e.g. 'massive accident mg road flyover. 3 cars hit. people trapped. send help fast!!!'",
-            height=200,
-            aria_label="Text Input For Crisis"
+            height=200
         )
     else:
         uploaded_file = st.file_uploader("Upload scene photo or handwritten note", type=["png", "jpg", "jpeg"], help="Upload an image showing the scale of the crisis.")
