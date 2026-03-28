@@ -90,3 +90,19 @@ def test_translate_protocol_success(mocker):
     result = AegisCore.translate_protocol("Step 1: Extinguish Fire.", target_lang="es")
     
     assert result == 'Paso 1: Extinguir Fuego'
+
+def test_broadcast_to_pubsub_missing_auth(mocker):
+    """Testing fallback for pubsub broadcast when GCP is offline."""
+    mocker.patch('app.cloud_auth', True)
+    mocker.patch('app.pubsub_v1.PublisherClient', side_effect=Exception("No GCP Auth"))
+    
+    result = AegisCore.broadcast_to_pubsub('{"test": "data"}')
+    assert result is False
+
+def test_generate_audio_dispatch_missing_auth(mocker):
+    """Testing fallback for TTS generation."""
+    mocker.patch('app.cloud_auth', True)
+    mocker.patch('app.texttospeech.TextToSpeechClient', side_effect=Exception("No GCP Auth"))
+    
+    result = AegisCore.generate_audio_dispatch("Execute protocol.")
+    assert result is None

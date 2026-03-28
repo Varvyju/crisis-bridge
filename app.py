@@ -12,6 +12,8 @@ try:
     from google.cloud import logging as cloud_logging
     from google.cloud import storage as cloud_storage
     from google.cloud import translate_v2 as translate
+    from google.cloud import pubsub_v1
+    from google.cloud import texttospeech
     cloud_auth = True
 except ImportError:
     cloud_auth = False
@@ -208,6 +210,46 @@ class AegisCore:
         except Exception:
             return text
 
+    @staticmethod
+    def broadcast_to_pubsub(payload_json: str) -> bool:
+        """
+        Publishes the JSON payload to a highly available message queue for microservices.
+        """
+        if not cloud_auth:
+            return False
+        try:
+            publisher = pubsub_v1.PublisherClient()
+            topic_path = publisher.topic_path("aegis-crisis-cloud", "emergency-dispatch")
+            future = publisher.publish(topic_path, payload_json.encode("utf-8"))
+            future.result() # block
+            return True
+        except Exception:
+            return False
+            
+    @staticmethod
+    def generate_audio_dispatch(text: str) -> Optional[bytes]:
+        """
+        Generates an audible radio broadcast of the action plan using Google TTS.
+        """
+        if not cloud_auth:
+            return None
+        try:
+            tts_client = texttospeech.TextToSpeechClient()
+            synthesis_input = texttospeech.SynthesisInput(text=text)
+            voice = texttospeech.VoiceSelectionParams(
+                language_code="en-US",
+                name="en-US-Standard-D"
+            )
+            audio_config = texttospeech.AudioConfig(
+                audio_encoding=texttospeech.AudioEncoding.MP3
+            )
+            response = tts_client.synthesize_speech(
+                input=synthesis_input, voice=voice, audio_config=audio_config
+            )
+            return response.audio_content
+        except Exception:
+            return None
+
 # === AI Configuration ===
 API_KEY = os.getenv("GEMINI_API_KEY")
 try:
@@ -217,7 +259,7 @@ except Exception:
     pass
 
 with st.sidebar:
-    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Google_Gemini_logo.svg/512px-Google_Gemini_logo.svg.png", width=50)
+    st.image("aegis_logo.png", width=100)
     st.title("Aegis Configuration")
     
     if not API_KEY:
@@ -366,6 +408,16 @@ with col2:
                         final_step = AegisCore.translate_protocol(step, "es") if translate_toggle else step
                         st.info(f"👉 {final_step}")
                         
+                    # Playable TTS Radio Audio Dispatch
+                    protocol_string = " ".join(result["ImmediateProtocol"])
+                    st.markdown("<h3>📻 Encrypted Radio Broadcast</h3>", unsafe_allow_html=True)
+                    audio_bytes = AegisCore.generate_audio_dispatch(f"Emergency Action Protocol. {protocol_string}")
+                    if audio_bytes:
+                        st.audio(audio_bytes, format='audio/mp3')
+                        st.caption("Auto-generated via Google Cloud TTS")
+                    else:
+                        st.error("Audio generation unavailable (Missing GCP Auth)")
+                        
                     # Entities & Context
                     st.markdown("<h3>🔍 Critical Entites</h3>", unsafe_allow_html=True)
                     for entity in result["KeyEntities"]:
@@ -382,6 +434,14 @@ with col2:
                         
                     # 98% Upgrade: Actionability Data Export (Problem Statement Alignment)
                     json_data = json.dumps(result, indent=4)
+                    
+                    # 100% Upgrade: Pub/Sub Broadcast
+                    broadcast_success = AegisCore.broadcast_to_pubsub(json_data)
+                    if broadcast_success:
+                        st.success("📡 Successfully broadcasted to Cloud Pub/Sub Microservices.")
+                    else:
+                        st.warning("📡 Microservice Broadcast offline (Missing GCP Auth), falling back to local JSON export.")
+                        
                     st.download_button(
                         label="📥 Download Structured Dispatch Protocol (JSON)",
                         data=json_data,
