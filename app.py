@@ -4,6 +4,7 @@ from PIL import Image
 import os
 import json
 import logging
+import urllib.parse
 
 try:
     from google.cloud import logging as cloud_logging
@@ -59,6 +60,17 @@ st.markdown("""
         text-transform: uppercase;
         letter-spacing: 1px;
     }
+    .maps-btn { 
+        display: inline-block; 
+        padding: 10px 15px; 
+        background-color: #4285F4; 
+        color: white; 
+        text-decoration: none; 
+        border-radius: 5px; 
+        font-weight: bold; 
+        margin-top: 10px;
+    }
+    .maps-btn:hover { background-color: #3367D6; color: white; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -259,6 +271,12 @@ with col2:
                     
                     st.markdown("<h3>📍 Location Area</h3>", unsafe_allow_html=True)
                     st.write(f"**{result['Location']}**")
+                    
+                    # Generate dynamic Google Maps routing link (Second Google Service Integration)
+                    if result["Location"].lower() != "unknown" and result["Location"].strip():
+                        maps_query = urllib.parse.quote(result["Location"])
+                        maps_url = f"https://www.google.com/maps/search/?api=1&query={maps_query}"
+                        st.markdown(f'<a href="{maps_url}" target="_blank" class="maps-btn">🗺️ Route on Google Maps</a>', unsafe_allow_html=True)
                     
                 except Exception as e:
                     st.error(f"Error parsing protocol. Please ensure prompt clarity or check quota: {str(e)}")

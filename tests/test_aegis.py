@@ -43,3 +43,12 @@ def test_optimize_image_rescaling(tmp_path):
     # Assert size was constrained
     assert optimized_img.size[0] <= 500
     assert optimized_img.size[1] <= 500
+
+def test_parse_ai_response_invalid_json(mocker):
+    """Testing error handling when the LLM returns completely invalid JSON."""
+    raw_response = "I couldn't parse this crisis."
+    
+    # We expect a json decode error
+    import json
+    with pytest.raises(json.JSONDecodeError):
+        parse_ai_response(raw_response)
