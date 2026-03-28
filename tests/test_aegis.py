@@ -5,7 +5,7 @@ from PIL import Image
 
 # Add root directory to python path for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from app import parse_ai_response, optimize_image, upload_evidence, translate_protocol
+from app import AegisCore
 
 def test_parse_ai_response_valid_json():
     """Testing JSON is successfully extracted without markdown tags."""
@@ -16,7 +16,7 @@ def test_parse_ai_response_valid_json():
         "Location": "Central Station"
     }
     ```'''
-    result = parse_ai_response(raw_response)
+    result = AegisCore.parse_ai_response(raw_response)
     assert result["CrisisType"] == "Medical"
     assert result["SeverityLevel"] == "High"
     assert result["Location"] == "Central Station"
@@ -28,7 +28,7 @@ def test_parse_ai_response_raw_dict():
         "SeverityLevel": "Critical",
         "Location": "Building A"
     }'''
-    result = parse_ai_response(raw_response)
+    result = AegisCore.parse_ai_response(raw_response)
     assert result["CrisisType"] == "Fire"
     assert result["SeverityLevel"] == "Critical"
 
@@ -38,7 +38,7 @@ def test_optimize_image_rescaling(tmp_path):
     image = Image.new('RGB', (2000, 2000), color = 'red')
     
     # Process it
-    optimized_img = optimize_image(image, max_size=(500, 500))
+    optimized_img = AegisCore.optimize_image(image, max_size=(500, 500))
     
     # Assert size was constrained
     assert optimized_img.size[0] <= 500
@@ -52,7 +52,7 @@ def test_parse_ai_response_invalid_json(mocker):
     # We expect a json decode error
     import json
     with pytest.raises(json.JSONDecodeError):
-        parse_ai_response(raw_response)
+        AegisCore.parse_ai_response(raw_response)
 
 def test_upload_evidence_auth_failure(mocker):
     """Testing that failure in GCS storage returns None without crashing the app."""
@@ -62,7 +62,7 @@ def test_upload_evidence_auth_failure(mocker):
     mocker.patch('app.cloud_storage.Client', side_effect=Exception("Missing standard Google credentials"))
     
     img = Image.new('RGB', (100, 100), color='blue')
-    result = upload_evidence(img)
+    result = AegisCore.upload_evidence(img)
     
     assert result is None
 
@@ -73,7 +73,7 @@ def test_translate_protocol_exception_fallback(mocker):
     mocker.patch('app.translate.Client', side_effect=Exception("Timeout Connection Refused"))
     
     original_text = "Step 1: Extinguish Fire."
-    result = translate_protocol(original_text, target_lang="es")
+    result = AegisCore.translate_protocol(original_text, target_lang="es")
     
     # Needs to fallback to exact original text
     assert result == "Step 1: Extinguish Fire."
@@ -87,6 +87,6 @@ def test_translate_protocol_success(mocker):
     
     mocker.patch('app.translate.Client', return_value=mock_client_instance)
     
-    result = translate_protocol("Step 1: Extinguish Fire.", target_lang="es")
+    result = AegisCore.translate_protocol("Step 1: Extinguish Fire.", target_lang="es")
     
     assert result == 'Paso 1: Extinguir Fuego'
